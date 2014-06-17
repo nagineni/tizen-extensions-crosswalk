@@ -1,0 +1,99 @@
+<html>
+<head>
+  <meta name="viewport" content="width=device-width">
+</head>
+
+<h1>Tizen Package API</h1>
+<body>
+<button onClick="handleCleanConsole()">Clean</button>
+<button onClick="handleInstall()">Install</button>
+<button onClick="handleUnInstall()">UnInstall</button>
+<button onClick="handleGetPackage()">GetPackage</button>
+<button onClick="handleGetPackages()">GetPackages</button>
+
+<pre id="console"></pre>
+<script src="js/js-test-pre.js"></script>
+<script>
+
+function handleCleanConsole()
+{
+  var el = document.getElementById("console");
+  while (el.firstChild)
+    el.removeChild(el.firstChild);
+}
+
+var onInstallation = {
+  onprogress: function(packageId, percentage) {
+    console.log("On installation(" + packageId + ") : progress(" + percentage + ")");
+  },
+  oncomplete: function(packageId) {
+    console.log("Installation(" + packageId + ") Complete");
+  }
+};
+
+var onUninstallation = {
+  onprogress: function(packageId, percentage) {
+    console.log("On Uninstallation(" + packageId + ") : progress(" + percentage + ")");
+  },
+  oncomplete: function(packageId) {
+    console.log("Uninstallation(" + packageId + ") Complete");
+  }
+};
+
+var onError = function (err) {
+  console.log("Error occurred Install/UnInstall : " + err.name);
+}
+
+function onListInstalledPackages(packages) {
+  for (var i = 0; i < packages.length; i++) {
+    console.log("Package id["+i+"] : " +packages[i].id);
+  }
+}
+
+function handleInstall()
+{
+  try {
+    debug('tizen.package.install:');
+    // Let's assume that "HangOnMan.wgt" file exists in the downloads directory
+    tizen.filesystem.resolve("downloads/HangOnMan.wgt",
+       function (file) {
+          console.log("file path : " + file.path);
+          tizen.package.install(file.toURI(), onInstallation, onError);
+     },
+     function (err) {
+        console.log("Error occurred on resolve : " + err.name);
+     },
+     "r");
+  } catch (err) {
+    debug(err.name);
+  }
+}
+
+function handleUnInstall()
+{
+  // Let's assume that the package id to uninstall is "HangOnMan"
+  debug('tizen.package.UnInstall:');
+  tizen.package.uninstall("HangOnMan", onUninstallation, onError);
+}
+
+function handleGetPackage()
+{
+  // If the ID is set to null or not set at all, it returns package
+  // information of the current application
+  try {
+    var packageInfo = tizen.package.getPackageInfo(null);
+    console.log("Current Package ID : " + packageInfo.id);
+  } catch (err) {
+    debug(err.name);
+  }
+}
+
+function handleGetPackages()
+{
+  // TODO(riju): Not implemented yet
+  console.log("Not implemented");
+}
+
+</script>
+</body>
+</html>
