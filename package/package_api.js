@@ -2,6 +2,13 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+var PackageEventState = {
+  'STARTED': 0,
+  'PROCESSING': 1,
+  'COMPLETED': 2,
+  'FAILED': 3
+};
+
 var _callbacks = {};
 var _nextReplyId = 0;
 
@@ -10,10 +17,13 @@ function getNextReplyId() {
 }
 
 function postMessage(msg, callback) {
+  console.log("postMessage===========");
   var replyId = getNextReplyId();
   _callbacks[replyId] = callback;
   msg.replyId = replyId;
+  console.log("postMessage===========" + msg.replyId);
   extension.postMessage(JSON.stringify(msg));
+  console.log("postMessage=========== Done");
 }
 
 function sendSyncMessage(msg) {
@@ -25,10 +35,26 @@ extension.setMessageListener(function(msg) {
   var replyId = m.replyId;
   var callback = _callbacks[replyId];
 
+  console.log("extension.setMessageListener");
+
+/*  if (replyId == 0) { // replyId zero is for events
+  console.log("No reply ID SO EVENT");
+    if (exports.changeListener != null) {
+      if (m.eventType == 'INSTALLED')
+        exports.changeListener.oninstalled(m.name);
+      else if (m.eventType == 'UPDATED')
+        exports.changeListener.onupdated(m.name);
+      else if (m.eventType == 'UNINSTALLED')
+        exports.changeListener.onuninstalled(m.name);
+    }
+  } else */
   if (typeof(callback) === 'function') {
+    console.log("extension.setMessageListeneri====" + m.cmd);
     callback(m);
-    delete m.replyId;
-    delete _callbacks[replyId];
+    if (m.isError || m.cmd == PackageEventState.COMPLETED || m.cmd == PackageEventState.FAILED) {
+      delete m.replyId;
+      delete _callbacks[replyId];
+    }
   } else {
     console.log('Invalid replyId from Tizen Package API: ' + replyId);
   }
@@ -51,54 +77,56 @@ function PackageInformation(packageId, name, iconPath, version, totalSize,
 }
 
 function PackageManager() {
+  this.changeListener = null;
 }
 
 PackageManager.prototype.install = function(path, onsuccess, onerror) {
-  if (!xwalk.utils.validateArguments('s?ff', arguments))
-    throw new tizen.WebAPIException(tizen.WebAPIException.TYPE_MISMATCH_ERR);
+  console.log("PackageManager.prototype.install.");
+/*  if (!xwalk.utils.validateArguments('s?ff', arguments))
+    throw new tizen.WebAPIException(tizen.WebAPIException.TYPE_MISMATCH_ERR);*/
 
+  console.log("PackageManager.prototype.install.000 ");
   postMessage({
     cmd: 'PackageManager.install',
-    path: path
+    package_path: path
   }, function(result) {
     if (result.isError) {
       if (onerror)
         onerror(new tizen.WebAPIError(result.errorCode));
-    } else if (onprogress) {
-      // TODO(riju)
-      // PackageInformationEventCallback
-      var id = result.id;
-      var progress = result.progress;
-      console.log(progress + ' % Installed ; package id->', id);
-    }
-    else if (oncomplete) {
-      var id = result.id;
-      console.log('Install completed for package id->', id);
+    } else if (result.cmd == PackageEventState.COMPLETED) {
+      console.log("Completeddd===========================\n");
+      if (typeof onsuccess.oncomplete !== 'undefined')
+        onsuccess.oncomplete(result.id);
+    } else {
+      console.log("Progresssssssssssssssssssssssssssssss\n");
+      if (typeof onsuccess.onprogress !== 'undefined')
+        onsuccess.onprogress(result.id, result.progress);
     }
   });
 };
 
 PackageManager.prototype.uninstall = function(id, onsuccess, onerror) {
-  if (!xwalk.utils.validateArguments('s?ff', arguments))
+  console.log("PackageManager.prototype.uninstall.");
+  if (!xwalk.utils.validateArguments('s?of', arguments))
     throw new tizen.WebAPIException(tizen.WebAPIException.TYPE_MISMATCH_ERR);
+  console.log("PackageManager.prototype.uninstall.000");
 
   postMessage({
     cmd: 'PackageManager.uninstall',
-    id: id
+    package_id: id
   }, function(result) {
+      console.log('00000 UnInstall completed for package id->', id);
     if (result.isError) {
       if (onerror)
         onerror(new tizen.WebAPIError(result.errorCode));
-    } else if (onprogress) {
-      // TODO(riju)
-      // PackageInformationEventCallback
-      var id = result.id;
-      var progress = result.progress;
-      console.log(progress + ' % UnInstalled ; package id->', id);
-    }
-    else if (oncomplete) {
-      var id = result.id;
-      console.log('UnInstall completed for package id->', id);
+    } else if (result.cmd == PackageEventState.COMPLETED) {
+      console.log("Completeddd===========================\n");
+      if (typeof onsuccess.oncomplete !== 'undefined')
+        onsuccess.oncomplete(result.id);
+    } else {
+      console.log("Progresssssssssssssssssssssssssssssss" + result.id + result.progress);
+      if (typeof onsuccess.onprogress !== 'undefined')
+        onsuccess.onprogress(result.id, result.progress);
     }
   });
 };
@@ -144,7 +172,7 @@ PackageManager.prototype.getPackageInfo = function(id) {
 
   postMessage({
     cmd: 'PackageManager.getPackageInfo',
-    id: id
+    package_id: id
   }, function(result) {
     if (result.isError) {
       if (onerror)
@@ -154,11 +182,22 @@ PackageManager.prototype.getPackageInfo = function(id) {
 };
 
 PackageManager.prototype.setPackageInfoEventListener = function(onchange) {
-  if (!xwalk.utils.validateArguments('f', arguments))
+  if (!xwalk.utils.validateArguments('o', arguments)) {
     throw new tizen.WebAPIException(tizen.WebAPIException.TYPE_MISMATCH_ERR);
+  }
+
+  if (!xwalk.utils.validateObject(listener, 'fff',
+      ['oninstalled', 'onupdated', 'onuninstalled'])) {
+    throw new tizen.WebAPIException(tizen.WebAPIException.TYPE_MISMATCH_ERR);
+  }
+
+  this.changeListener = listener;
+  sendSyncMessage({cmd: 'PackageManager.setPackageInfoEventListener'});
 };
 
 PackageManager.prototype.unsetPackageInfoEventListener = function() {
+  this.changeListener = null;
+  sendSyncMessage({cmd: 'PackageManager.unsetPackageInfoEventListener'});
 };
 
 exports = new PackageManager();

@@ -10,6 +10,9 @@
 <button onClick="handleUnInstall()">UnInstall</button>
 <button onClick="handleGetPackage()">GetPackage</button>
 <button onClick="handleGetPackages()">GetPackages</button>
+<button onClick="enableEvents()">Listener (ON)</button>
+<button onClick="disableEvents()">Listener (OFF)</button>
+
 
 <pre id="console"></pre>
 <script src="js/js-test-pre.js"></script>
@@ -24,19 +27,19 @@ function handleCleanConsole()
 
 var onInstallation = {
   onprogress: function(packageId, percentage) {
-    console.log("On installation(" + packageId + ") : progress(" + percentage + ")");
+    debug("On installation(" + packageId + ") : progress(" + percentage + ")");
   },
   oncomplete: function(packageId) {
-    console.log("Installation(" + packageId + ") Complete");
+    debug("Installation(" + packageId + ") Complete");
   }
 };
 
 var onUninstallation = {
   onprogress: function(packageId, percentage) {
-    console.log("On Uninstallation(" + packageId + ") : progress(" + percentage + ")");
+    debug("On Uninstallation(" + packageId + ") : progress(" + percentage + ")");
   },
   oncomplete: function(packageId) {
-    console.log("Uninstallation(" + packageId + ") Complete");
+   debug("Uninstallation(" + packageId + ") Complete");
   }
 };
 
@@ -55,12 +58,13 @@ function handleInstall()
   try {
     debug('tizen.package.install:');
     // Let's assume that "HangOnMan.wgt" file exists in the downloads directory
-    tizen.filesystem.resolve("downloads/HangOnMan.wgt",
+    tizen.filesystem.resolve("downloads/tct-filesystem-tizen-tests.wgt",
        function (file) {
           console.log("file path : " + file.path);
           tizen.package.install(file.toURI(), onInstallation, onError);
      },
      function (err) {
+        console.log("file path : " + file.path);
         console.log("Error occurred on resolve : " + err.name);
      },
      "r");
@@ -71,9 +75,14 @@ function handleInstall()
 
 function handleUnInstall()
 {
+  try {
   // Let's assume that the package id to uninstall is "HangOnMan"
-  debug('tizen.package.UnInstall:');
-  tizen.package.uninstall("HangOnMan", onUninstallation, onError);
+  tizen.package.uninstall("tct-filesystem-tizen-tests", onUninstallation, onError);
+  }
+  catch (err) {
+    debug(err.name);
+  }
+
 }
 
 function handleGetPackage()
@@ -92,6 +101,36 @@ function handleGetPackages()
 {
   // TODO(riju): Not implemented yet
   console.log("Not implemented");
+}
+
+var packageEventCallback = {
+  oninstalled: function(packageInfo) {
+    console.log('The package ' + packageInfo.name + ' is installed');
+  },
+  onupdated: function(packageInfo) {
+    console.log('The package ' + packageInfo.name + ' is updated');
+  },
+  onuninstalled: function(packageId) {
+    console.log('The package ' + packageId + ' is uninstalled');
+  }
+};
+
+function enableEvents() {
+  try {
+    debug('tizen.package.setPackageInfoEventListener:');
+    tizen.package.setPackageInfoEventListener(packageEventCallback);
+  } catch (err) {
+    debug(err.name);
+  }
+}
+
+function disableEvents() {
+  try {
+    debug('tizen.package.unsetPackageInfoEventListener:');
+    tizen.package.unsetPackageInfoEventListener();
+  } catch (err) {
+    debug(err.name);
+  }
 }
 
 </script>

@@ -31,7 +31,18 @@ class PackageInstance : public common::Instance {
 
   PackageManager* package_manager() { return package_manager_.get(); }
 
+
+  void OnRequestHandled(int id, const char *packageid,
+      int event_type, int event_state, int progress, int error);
+
  private:
+  enum PackageEventState {
+    STARTED = 0,
+    PROCESSING = 1,
+    COMPLETED = 2,
+    FAILED = 3,
+  };
+
   // common::Instance implementation
   virtual void HandleMessage(const char* msg);
   virtual void HandleSyncMessage(const char* msg);
@@ -50,9 +61,16 @@ class PackageInstance : public common::Instance {
   void PostAsyncSuccessReply(const picojson::value&, picojson::value&);
   void PostAsyncSuccessReply(const picojson::value&, WebApiAPIErrors);
   void PostAsyncSuccessReply(const picojson::value&);
+  int CallbackReplyId(int requiest_id);
 
   // Tizen CAPI helpers
   std::unique_ptr<PackageManager> package_manager_;
+
+  // Map JS reply_id to a C API callback
+  std::map<int, double> callbacks_id_map_;
+
+//  typedef std::map<int, int> RequestIdToThreadId;
+//  RequestIdToThreadId request_id_map_;
 };
 
 #endif  // PACKAGE_PACKAGE_INSTANCE_H_
